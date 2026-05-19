@@ -11,15 +11,13 @@ concurrency:
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-  # Edit this to your preferred preprod hostname (must be added as a domain on the Vercel project).
-  PREPROD_ALIAS: crypto-intel-preprod.vercel.app
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment:
       name: preprod
-      url: https://${{ env.PREPROD_ALIAS }}
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +40,5 @@ jobs:
         run: |
           url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
-
-      - name: Alias to preprod hostname
-        run: vercel alias set "${{ steps.deploy.outputs.url }}" "${{ env.PREPROD_ALIAS }}" --token=${{ secrets.VERCEL_TOKEN }}
+          echo "## Preprod deployment :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
