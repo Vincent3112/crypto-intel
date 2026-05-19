@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db'
 import Dashboard, { type TokenRow, type CandidateRow } from '@/components/Dashboard'
 
+export const dynamic = 'force-dynamic'
+
 async function getTokens(): Promise<TokenRow[]> {
   const raw = await prisma.token.findMany({
     include: { scores: { orderBy: { createdAt: 'desc' }, take: 1 } },
