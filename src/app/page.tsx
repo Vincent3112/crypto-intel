@@ -1,65 +1,58 @@
-import Image from "next/image";
+import { prisma } from '@/lib/db'
+import Dashboard, { type TokenRow, type CandidateRow } from '@/components/Dashboard'
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+async function getTokens(): Promise<TokenRow[]> {
+  const raw = await prisma.token.findMany({
+    include: { scores: { orderBy: { createdAt: 'desc' }, take: 1 } },
+  })
+
+  return raw
+    .map(t => {
+      const s = t.scores[0]
+      if (!s) return null
+      return {
+        id: t.id,
+        symbol: t.symbol,
+        name: t.name,
+        rank: t.rank,
+        price: t.price,
+        marketCap: t.marketCap,
+        volume24h: t.volume24h,
+        priceChange24h: t.priceChange24h,
+        priceChange7d: t.priceChange7d,
+        athChangePercent: t.athChangePercent,
+        compositeScore: s.compositeScore,
+        technicalScore: s.technicalScore ?? 0,
+        sentimentScore: s.sentimentScore ?? 0,
+        fundamentalScore: s.fundamentalScore ?? 0,
+        updatedAt: t.updatedAt.toISOString(),
+      } satisfies TokenRow
+    })
+    .filter((t): t is TokenRow => t !== null)
+    .sort((a, b) => b.compositeScore - a.compositeScore)
+}
+
+async function getCandidates(): Promise<CandidateRow[]> {
+  const raw = await prisma.tradeCandidate.findMany({
+    where: { status: 'pending' },
+    include: { token: { select: { name: true, symbol: true } } },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return raw.map(c => ({
+    id: c.id,
+    tokenId: c.tokenId,
+    name: c.token.name,
+    symbol: c.token.symbol,
+    priceAtSignal: c.priceAtSignal,
+    target1: c.target1,
+    target2: c.target2,
+    compositeScore: c.compositeScore,
+    createdAt: c.createdAt.toISOString(),
+  }))
+}
+
+export default async function Page() {
+  const [tokens, candidates] = await Promise.all([getTokens(), getCandidates()])
+  return <Dashboard tokens={tokens} candidates={candidates} />
 }

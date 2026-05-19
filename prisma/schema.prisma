@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Token {
+  id                String   @id           // CoinGecko id e.g. "bitcoin"
+  symbol            String
+  name              String
+  rank              Int
+  price             Float
+  marketCap         Float
+  volume24h         Float
+  priceChange24h    Float
+  priceChange7d     Float?
+  ath               Float?
+  athChangePercent  Float?
+  circulatingSupply Float?
+  totalSupply       Float?
+  updatedAt         DateTime @updatedAt
+
+  priceHistory      PriceSnapshot[]
+  scores            TokenScore[]
+  candidates        TradeCandidate[]
+  safetyLogs        SafetyLog[]
+  candles           Candle[]
+}
+
+model PriceSnapshot {
+  id        Int      @id @default(autoincrement())
+  tokenId   String
+  price     Float
+  volume    Float
+  marketCap Float
+  timestamp DateTime @default(now())
+
+  token     Token    @relation(fields: [tokenId], references: [id])
+
+  @@index([tokenId, timestamp])
+}
+
+model TokenScore {
+  id              Int      @id @default(autoincrement())
+  tokenId         String
+  technicalScore  Float?
+  sentimentScore  Float?
+  fundamentalScore Float?
+  compositeScore  Float
+  createdAt       DateTime @default(now())
+
+  token           Token    @relation(fields: [tokenId], references: [id])
+
+  @@index([tokenId, createdAt])
+}
+
+model TradeCandidate {
+  id               Int      @id @default(autoincrement())
+  tokenId          String
+  compositeScore   Float
+  technicalScore   Float
+  fundamentalScore Float
+  priceAtSignal    Float
+  target1          Float    // ×1.5 target price
+  target2          Float    // ×2.0 target price
+  status           String   @default("pending") // pending | bought | target1_hit | target2_hit | stopped
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  token            Token    @relation(fields: [tokenId], references: [id])
+
+  @@index([tokenId, status])
+}
+
+model SafetyLog {
+  id        Int      @id @default(autoincrement())
+  tokenId   String
+  filter    String
+  passed    Boolean
+  reason    String
+  createdAt DateTime @default(now())
+
+  token     Token    @relation(fields: [tokenId], references: [id])
+
+  @@index([tokenId, createdAt])
+}
+
+model Candle {
+  id        Int      @id @default(autoincrement())
+  tokenId   String
+  symbol    String
+  openTime  DateTime
+  open      Float
+  high      Float
+  low       Float
+  close     Float
+  volume    Float
+  closeTime DateTime
+
+  token     Token    @relation(fields: [tokenId], references: [id])
+
+  @@unique([tokenId, openTime])
+  @@index([tokenId, openTime])
+}
